@@ -1,0 +1,16 @@
+name = "token-proxy"
+type = "webpack"
+
+account_id = "ca7271d81a89aa1b584684f4aea8c1a4"
+workers_dev = true
+compatibility_date = "2021-11-15"
+
+[vars]
+ORIGIN = "https://pkce-proxy.atko.rocks"
+
+[env.production]
+route = "https://iframe-auth.atko.rocks/oauth2/aus1pazrlm4yL3gvV1d7/v1/token"
+zone_id = "b8c49223620c406f8b17faef65ac3322"
+
+[env.dev]
+route = "https://localhost:8787/oauth2/aus1pazrlm4yL3gvV1d7/v1/token"
