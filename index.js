@@ -3,7 +3,7 @@ import { Router } from 'itty-router';
 /*
 Function to set the common and necessary headers in order to handle CORS.
 */
-const setCommonHeaders = async resp => {
+const setCommonHeaders = async (resp, origin) => {
     try {
         /*
         In order for Set-Cookie to work, the 'Access-Control-Allow-Credentials' must be set.
@@ -13,7 +13,7 @@ const setCommonHeaders = async resp => {
             'Access-Control-Allow-Headers',
             'Set-Cookie, Content-Type'
         );
-        resp.headers.set('Access-Control-Allow-Origin', ORIGIN);
+        resp.headers.set('Access-Control-Allow-Origin', origin || ORIGIN);
         resp.headers.set('Access-Control-Allow-Methods', 'OPTIONS, POST');
         /*
            CORS requires a max age in order to set credentials.
@@ -24,37 +24,51 @@ const setCommonHeaders = async resp => {
     }
 };
 
-const token = async req => {
+const doToken = async (newResponse, origin) => {
     try {
-        const url = new URL(req.url) || {};
+        /*
+                Sets an HttpOnly cookie for the origin's domain that expires when the access_token expires.
+
+                The domain must be set otherwise the cookie is only usable by Okta since the /token response comes from the Okta domain.
+                */
+        const regex = /(?<=\.).*/,
+            _origin = origin || ORIGIN;
+        domain = _origin.match(regex)[0] || '';
+
+        newResponse.headers.append(
+            'Set-Cookie',
+            `at=${body.access_token}; Secure; HttpOnly; SameSite=None; Path=/; Domain=${domain}; Max-Age=${body.expires_in}`
+        );
+
+        return newResponse;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+};
+
+const handler = async req => {
+    try {
+        const { method } = req || {};
+
+        const { origin } = Object.fromEntries(req.headers) || {};
 
         let response = await fetch(req, { withCredentials: true });
 
         if (response && response.ok) {
             let newResponse, body;
 
-            if (req && req.method === 'POST') {
+            if (method && method !== 'OPTIONS') {
                 body = (await response.json()) || {};
             }
 
             newResponse = new Response(JSON.stringify(body), response);
 
             if (body && body.access_token) {
-                /*
-                Sets an HttpOnly cookie for the origin's domain that expires when the access_token expires.
-
-                The domain must be set otherwise the cookie is only usable by Okta since the /token response comes from the Okta domain.
-                */
-                const regex = /(?<=\.).*/,
-                    domain = ORIGIN.match(regex)[0] || '';
-
-                newResponse.headers.append(
-                    'Set-Cookie',
-                    `at=${body.access_token}; Secure; HttpOnly; SameSite=None; Path=/; Domain=${domain}; Max-Age=${body.expires_in}`
-                );
+                newResponse = await doToken(newResponse, origin);
             }
 
-            await setCommonHeaders(newResponse);
+            await setCommonHeaders(newResponse, origin);
 
             return newResponse;
         } else return response;
@@ -77,10 +91,10 @@ router.get('/', () => {
 });
 
 /*
-Okta makes an OPTIONS and POST call that both need to be captured so using router.all().
+Okta makes an OPTIONS and POST call for /token that both need to be captured so using router.all().
 */
-router.all('*/token', async (req, res) => {
-    return await token(req);
+router.all('*', async (req, res) => {
+    return await handler(req);
 });
 
 /*
