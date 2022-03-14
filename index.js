@@ -24,21 +24,28 @@ const setCommonHeaders = async (resp, origin) => {
     }
 };
 
-const doToken = async (newResponse, origin) => {
+const doToken = async (response, origin, method) => {
     try {
         /*
-                Sets an HttpOnly cookie for the origin's domain that expires when the access_token expires.
+        Sets an HttpOnly cookie for the origin's domain that expires when the access_token expires.
 
-                The domain must be set otherwise the cookie is only usable by Okta since the /token response comes from the Okta domain.
-                */
-        const regex = /(?<=\.).*/,
-            _origin = origin || ORIGIN;
-        domain = _origin.match(regex)[0] || '';
+        The domain must be set otherwise the cookie is only usable by Okta since the /token response comes from the Okta domain.
+        */
 
-        newResponse.headers.append(
-            'Set-Cookie',
-            `at=${body.access_token}; Secure; HttpOnly; SameSite=None; Path=/; Domain=${domain}; Max-Age=${body.expires_in}`
-        );
+        const newResponse = new Response(response.clone().body, response);
+
+        if (method && method !== 'OPTIONS') {
+            const body = (await response.json()) || undefined;
+
+            const regex = /(?<=\.).*/;
+            const _origin = origin || ORIGIN;
+            const domain = _origin.match(regex)[0] || '';
+
+            newResponse.headers.append(
+                'Set-Cookie',
+                `at=${body.access_token}; Secure; HttpOnly; SameSite=None; Path=/; Domain=${domain}; Max-Age=${body.expires_in}`
+            );
+        }
 
         return newResponse;
     } catch (error) {
@@ -56,22 +63,14 @@ const handler = async req => {
         let response = await fetch(req, { withCredentials: true });
 
         if (response && response.ok) {
-            let newResponse, body;
-
-            if (method && method !== 'OPTIONS') {
-                body = (await response.json()) || {};
-            }
-
-            newResponse = new Response(JSON.stringify(body), response);
-
-            if (body && body.access_token) {
-                newResponse = await doToken(newResponse, origin);
-            }
+            const newResponse = await doToken(response.clone(), origin, method);
 
             await setCommonHeaders(newResponse, origin);
 
             return newResponse;
-        } else return response;
+        }
+
+        return response;
     } catch (error) {
         console.error(error);
         throw error;
