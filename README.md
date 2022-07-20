@@ -4,7 +4,7 @@ This sample proxies the Okta `/token` request in order to 'intercept' the respon
 
 _There are security implications when using this model as it is overriding CORS features/capabilities._ **Before utilizing this example in any sort of production environment, be sure to submit it to in-depth security review to ensure it meets your needs.**
 
-This proxy is implemented [here](https://pkce-proxy.atko.rocks) (see source code [here](https://github.com/eatplaysleep/okta-pkce-proxy))
+This proxy is implemented [here](https://pkce-proxy.atko.rocks) (see source code [here](https://github.com/eatplaysleep/okta-pkce-proxy/tree/pkce-proxy))
 
 ## Custom okta-auth-js
 
